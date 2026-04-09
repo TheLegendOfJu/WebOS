@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Mein Phone</title>
+    <style>
+        /* HTML und Body anpassen, um Scrollen und Zoomen zu blockieren */
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden; /* Verhindert das Scrollen */
+            overscroll-behavior: none; /* Verhindert den Pull-to-Refresh & Gummiband-Effekt */
+            touch-action: none; /* Deaktiviert Browser-Standard-Touch-Gesten wie Zoomen und Pannen */
+            font-family: -apple-system, sans-serif;
+            background: url('https://images.unsplash.com/photo-1557683316-973673baf926') no-repeat center center fixed;
+            background-size: cover;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .status-bar {
+            width: 100%;
+            height: 40px;
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 20px;
+            box-sizing: border-box;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .app-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            padding: 20px;
+            margin-top: 20px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .app-icon {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: white;
+            font-size: 11px;
+        }
+
+        .icon-box {
+            width: 60px;
+            height: 60px;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            margin-bottom: 5px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: transform 0.1s;
+        }
+
+        .app-icon:active .icon-box {
+            transform: scale(0.9);
+        }
+
+        /* Farben für die Icons */
+        .camera { background: linear-gradient(#4facfe, #00f2fe); }
+        .snake { background: linear-gradient(#43e97b, #38f9d7); }
+        .brickgame { background: linear-gradient(#fa709a, #fee140); }
+        .video { background: linear-gradient(#667eea, #764ba2); }
+
+    </style>
+</head>
+<body>
+
+    <div class="status-bar">
+        <span id="time">12:00</span>
+        <span>📶 🛜 <span id="battery-level">--%</span> <span id="battery-icon">🔋</span></span>
+    </div>
+
+    <div class="app-grid">
+        <a href="cam.html" class="app-icon">
+            <div class="icon-box camera">📸</div>
+            <span>Camera</span>
+        </a>
+
+        <a href="snakegame.html" class="app-icon">
+            <div class="icon-box snake">🐍</div>
+            <span>SnakeGame</span>
+        </a>
+
+        <a href="brickgame.html" class="app-icon">
+            <div class="icon-box brickgame">🧱</div>
+            <span>BrickGame</span>
+        </a>
+
+        <a href="https://youtube.com/shorts/_6HzLIJPH2A?is=jO8iJdqxb4nomOKa" class="app-icon">
+            <div class="icon-box video">📺</div> <span>Video</span>
+        </a>
+    </div>
+
+    <script>
+        // --- Uhrzeit aktualisieren ---
+        function updateTime() {
+            const now = new Date();
+            // Hier wurde das String(...).padStart(2, '0') für die Stunden hinzugefügt!
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            
+            document.getElementById('time').innerText = hours + ":" + minutes;
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // --- Scrollen und Zoomen verhindern ---
+        // 1. Verhindert das Scrollen und "Bouncen" (Gummiband-Effekt bei iOS)
+        document.addEventListener('touchmove', function(event) {
+            event.preventDefault();
+        }, { passive: false });
+
+        // 2. Verhindert Pinch-to-Zoom Geste (Safari iOS ignoriert oft user-scalable=no)
+        document.addEventListener('gesturestart', function(event) {
+            event.preventDefault();
+        });
+        
+        // 3. Verhindert das Doppeltipp-Zoomen auf manchen Geräten
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', function (event) {
+            const now = (new Date()).getTime();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+
+        // --- Batterie-Status abrufen ---
+        const batteryLevelText = document.getElementById('battery-level');
+        const batteryIcon = document.getElementById('battery-icon');
+
+        // Prüfen, ob der Browser die Batterie-Abfrage unterstützt
+        if ('getBattery' in navigator) {
+            navigator.getBattery().then(function(battery) {
+                
+                function updateBatteryInfo() {
+                    // Akkustand in Prozent ausrechnen
+                    batteryLevelText.innerText = Math.round(battery.level * 100) + "%";
+                    
+                    // Lade-Icon anzeigen, wenn am Strom
+                    batteryIcon.innerText = battery.charging ? "⚡" : "🔋";
+                }
+
+                updateBatteryInfo(); // Beim Start einmal ausführen
+
+                // Automatisch aktualisieren bei Änderungen
+                battery.addEventListener('levelchange', updateBatteryInfo);
+                battery.addEventListener('chargingchange', updateBatteryInfo);
+            });
+        } else {
+            // Fallback für iPhones/Safari/Firefox
+            batteryLevelText.innerText = "69%";
+            batteryIcon.innerText = "🔋";
+        }
+    </script>
+</body>
+</html>

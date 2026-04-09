@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Mobile Touch BrickGame</title>
+    <style>
+        /* =========================================
+           CSS STYLING - MOBILE OPTIMIERT
+           ========================================= */
+        :root {
+            --bg-color: #111;
+            --text-color: #fff;
+            --panel-bg: #222;
+            --border-radius: 10px;
+        }
+
+        body, html {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            overflow: hidden; 
+            touch-action: none; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #game-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 500px;
+            height: 100%;
+            padding: env(safe-area-inset-top) 10px env(safe-area-inset-bottom) 10px;
+            box-sizing: border-box;
+        }
+
+        .top-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: var(--panel-bg);
+            padding: 10px 15px;
+            border-radius: var(--border-radius);
+            margin-bottom: 10px;
+            margin-top: 10px;
+        }
+
+        .stats {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .stat-box {
+            font-size: 14px;
+            color: #aaa;
+        }
+
+        .stat-box span {
+            font-size: 20px;
+            font-weight: bold;
+            color: #4CAF50;
+            margin-left: 10px;
+        }
+
+        .next-piece-container {
+            text-align: center;
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        #next-piece-canvas {
+            background-color: transparent;
+            margin-top: 5px;
+        }
+
+        #canvas-container {
+            position: relative;
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        #brickgame-board {
+            background-color: #000;
+            border: 2px solid #444;
+            border-radius: 5px;
+            height: 100%;
+            max-height: 75vh;
+            aspect-ratio: 10 / 20;
+            box-shadow: inset 0 0 15px rgba(255,255,255,0.05);
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            flex-grow: 1;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: var(--border-radius);
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+
+        button:active {
+            background-color: #388E3C;
+            transform: scale(0.98);
+        }
+
+        /* Styling für den neuen Home Button */
+        .icon-btn {
+            flex-grow: 0;
+            flex-shrink: 0;
+            width: 55px;
+            padding: 0;
+            background-color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+        }
+
+        .icon-btn:active {
+            background-color: #555;
+        }
+
+        #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            display: none;
+            z-index: 10;
+            border-radius: 5px;
+        }
+
+        #game-over-screen h1 {
+            color: #ff3333;
+            margin-bottom: 10px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div class="top-panel">
+            <div class="stats">
+                <div class="stat-box">SCORE: <span id="score">0</span></div>
+                <div class="stat-box">LEVEL: <span id="level">1</span></div>
+                <div class="stat-box">LINES: <span id="lines">0</span></div>
+            </div>
+            <div class="next-piece-container">
+                <div>NÄCHSTER</div>
+                <canvas id="next-piece-canvas" width="60" height="60"></canvas>
+            </div>
+        </div>
+
+        <div id="canvas-container">
+            <canvas id="brickgame-board" width="300" height="600"></canvas>
+            
+            <div id="game-over-screen">
+                <h1>GAME OVER</h1>
+                <p>Score: <span id="final-score">0</span></p>
+                <button id="restart-btn" style="margin-top: 20px; width: 80%;">Neustart</button>
+                <button onclick="window.location.href='index.html'" style="margin-top: 10px; width: 80%; background-color: #333;">Menü</button>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="icon-btn" onclick="window.location.href='index.html'" title="Zurück zur Startseite">🏠</button>
+            <button id="start-btn">Start</button>
+        </div>
+    </div>
+
+    <script>
+        /* =========================================
+           JAVASCRIPT - LOGIK & TOUCH STEUERUNG
+           ========================================= */
+
+        const COLS = 10;
+        const ROWS = 20;
+        const BLOCK_SIZE = 30; 
+
+        const COLORS = [
+            '#000000', '#00FFFF', '#0055FF', '#FFA500', 
+            '#FFFF00', '#00FF00', '#FF00FF', '#FF0000' 
+        ];
+
+        const SHAPES = [
+            [],
+            [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
+            [[2,0,0],[2,2,2],[0,0,0]],
+            [[0,0,3],[3,3,3],[0,0,0]],
+            [[4,4],[4,4]],
+            [[0,5,5],[5,5,0],[0,0,0]],
+            [[0,6,0],[6,6,6],[0,0,0]],
+            [[7,7,0],[0,7,7],[0,0,0]]
+        ];
+
+        const canvas = document.getElementById('brickgame-board');
+        const ctx = canvas.getContext('2d');
+        const nextCanvas = document.getElementById('next-piece-canvas');
+        const nextCtx = nextCanvas.getContext('2d');
+        
+        const scoreElement = document.getElementById('score');
+        const levelElement = document.getElementById('level');
+        const linesElement = document.getElementById('lines');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const startBtn = document.getElementById('start-btn');
+        const restartBtn = document.getElementById('restart-btn');
+
+        let board = [];
+        let score = 0, lines = 0, level = 1;
+        let gameMode = 'STOPPED'; 
+        let dropCounter = 0, dropInterval = 1000, lastTime = 0;
+        let animationId = null;
+
+        const player = { pos: { x: 0, y: 0 }, matrix: null, nextMatrix: null };
+
+        function createMatrix(w, h) {
+            const matrix = [];
+            for (let i = 0; i < h; i++) matrix.push(new Array(w).fill(0));
+            return matrix;
+        }
+
+        function getRandomPiece() {
+            const typeId = Math.floor(Math.random() * 7) + 1;
+            return SHAPES[typeId];
+        }
+
+        function drawMatrix(matrix, offset, context, isGhost = false) {
+            matrix.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value !== 0) {
+                        if (isGhost) {
+                            context.fillStyle = 'rgba(255, 255, 255, 0.15)';
+                            context.fillRect((x + offset.x) * BLOCK_SIZE, (y + offset.y) * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+                            context.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+                            context.lineWidth = 2;
+                            context.strokeRect((x + offset.x) * BLOCK_SIZE + 1, (y + offset.y) * BLOCK_SIZE + 1, BLOCK_SIZE - 2, BLOCK_SIZE - 2);
+                        } else {
+                            context.fillStyle = COLORS[value];
+                            context.fillRect((x + offset.x) * BLOCK_SIZE, (y + offset.y) * BLOCK_SIZE, BLOCK_SIZE - 1, BLOCK_SIZE - 1);
+                            context.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                            context.fillRect((x + offset.x) * BLOCK_SIZE, (y + offset.y) * BLOCK_SIZE, BLOCK_SIZE, 3);
+                            context.fillRect((x + offset.x) * BLOCK_SIZE, (y + offset.y) * BLOCK_SIZE, 3, BLOCK_SIZE);
+                        }
+                    }
+                });
+            });
+        }
+
+        function collide(arena, p) {
+            const m = p.matrix, o = p.pos;
+            for (let y = 0; y < m.length; ++y) {
+                for (let x = 0; x < m[y].length; ++x) {
+                    if (m[y][x] !== 0 && (arena[y + o.y] && arena[y + o.y][x + o.x]) !== 0) return true;
+                }
+            }
+            return false;
+        }
+
+        function merge(arena, p) {
+            p.matrix.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value !== 0) arena[y + p.pos.y][x + p.pos.x] = value;
+                });
+            });
+        }
+
+        function rotate(matrix, dir) {
+            for (let y = 0; y < matrix.length; ++y) {
+                for (let x = 0; x < y; ++x) {
+                    [matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]];
+                }
+            }
+            if (dir > 0) matrix.forEach(row => row.reverse());
+            else matrix.reverse();
+        }
+
+        function playerMove(offset) {
+            player.pos.x += offset;
+            if (collide(board, player)) player.pos.x -= offset;
+        }
+
+        function playerRotate() {
+            const pos = player.pos.x;
+            let offset = 1;
+            rotate(player.matrix, 1);
+            while (collide(board, player)) {
+                player.pos.x += offset;
+                offset = -(offset + (offset > 0 ? 1 : -1));
+                if (offset > player.matrix[0].length) {
+                    rotate(player.matrix, -1);
+                    player.pos.x = pos;
+                    return;
+                }
+            }
+        }
+
+        function playerDrop() {
+            player.pos.y++;
+            if (collide(board, player)) {
+                player.pos.y--;
+                merge(board, player);
+                playerReset();
+                arenaSweep();
+                updateStats();
+            }
+            dropCounter = 0;
+        }
+
+        function playerHardDrop() {
+            while (!collide(board, player)) {
+                player.pos.y++;
+            }
+            player.pos.y--;
+            merge(board, player);
+            playerReset();
+            arenaSweep();
+            updateStats();
+            dropCounter = 0;
+            draw();
+        }
+
+        function getGhostPos() {
+            const ghost = { matrix: player.matrix, pos: { x: player.pos.x, y: player.pos.y } };
+            while (!collide(board, ghost)) ghost.pos.y++;
+            ghost.pos.y--;
+            return ghost.pos;
+        }
+
+        function playerReset() {
+            if (player.nextMatrix === null) player.nextMatrix = getRandomPiece();
+            player.matrix = player.nextMatrix;
+            player.nextMatrix = getRandomPiece();
+            player.pos.y = 0;
+            player.pos.x = Math.floor(COLS / 2) - Math.floor(player.matrix[0].length / 2);
+
+            if (collide(board, player)) gameOver();
+            drawNextPiece();
+        }
+
+        function arenaSweep() {
+            let rowCount = 0;
+            outer: for (let y = board.length - 1; y >= 0; --y) {
+                for (let x = 0; x < board[y].length; ++x) {
+                    if (board[y][x] === 0) continue outer;
+                }
+                const row = board.splice(y, 1)[0].fill(0);
+                board.unshift(row);
+                ++y;
+                rowCount++;
+            }
+
+            if (rowCount > 0) {
+                const points = [0, 40, 100, 300, 1200];
+                score += points[rowCount] * level;
+                lines += rowCount;
+                level = Math.floor(lines / 10) + 1;
+                dropInterval = Math.max(100, 1000 - (level - 1) * 100);
+            }
+        }
+
+        function updateStats() {
+            scoreElement.innerText = score;
+            linesElement.innerText = lines;
+            levelElement.innerText = level;
+        }
+
+        function gameOver() {
+            gameMode = 'GAMEOVER';
+            cancelAnimationFrame(animationId);
+            document.getElementById('final-score').innerText = score;
+            gameOverScreen.style.display = 'flex';
+        }
+
+        function drawNextPiece() {
+            nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+            const previewSize = 15;
+            const matrix = player.nextMatrix;
+            const offsetX = (nextCanvas.width - matrix[0].length * previewSize) / 2;
+            const offsetY = (nextCanvas.height - matrix.length * previewSize) / 2;
+
+            matrix.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value !== 0) {
+                        nextCtx.fillStyle = COLORS[value];
+                        nextCtx.fillRect(offsetX + x * previewSize, offsetY + y * previewSize, previewSize - 1, previewSize - 1);
+                    }
+                });
+            });
+        }
+
+        function draw() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.strokeStyle = '#222';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < COLS; i++) {
+                ctx.beginPath(); ctx.moveTo(i * BLOCK_SIZE, 0); ctx.lineTo(i * BLOCK_SIZE, canvas.height); ctx.stroke();
+            }
+            for (let j = 0; j < ROWS; j++) {
+                ctx.beginPath(); ctx.moveTo(0, j * BLOCK_SIZE); ctx.lineTo(canvas.width, j * BLOCK_SIZE); ctx.stroke();
+            }
+
+            drawMatrix(board, { x: 0, y: 0 }, ctx);
+            drawMatrix(player.matrix, getGhostPos(), ctx, true); 
+            drawMatrix(player.matrix, player.pos, ctx);
+        }
+
+        function update(time = 0) {
+            if (gameMode !== 'PLAYING') return;
+            const deltaTime = time - lastTime;
+            lastTime = time;
+
+            dropCounter += deltaTime;
+            if (dropCounter > dropInterval) playerDrop();
+
+            draw();
+            animationId = requestAnimationFrame(update);
+        }
+
+        function startGame() {
+            board = createMatrix(COLS, ROWS);
+            score = 0; lines = 0; level = 1; dropInterval = 1000;
+            updateStats();
+            playerReset();
+            gameOverScreen.style.display = 'none';
+            gameMode = 'PLAYING';
+            lastTime = performance.now();
+            update();
+        }
+
+        /* =========================================
+           TOUCH GESTEN FÜR SMARTPHONES (NEU)
+           ========================================= */
+        
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let lastMoveX = 0;
+        let lastMoveY = 0;
+        
+        // Schwellenwerte für Bewegungen
+        let moveThreshold = window.innerWidth / 15; // Links/Rechts
+        let dropThreshold = 35; // Pixel ziehen für einen Drop nach unten
+
+        canvas.addEventListener('touchstart', (e) => {
+            if (gameMode !== 'PLAYING') return;
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+            lastMoveX = touchStartX;
+            lastMoveY = touchStartY;
+            e.preventDefault(); 
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (gameMode !== 'PLAYING') return;
+            e.preventDefault(); 
+
+            let currentX = e.changedTouches[0].screenX;
+            let currentY = e.changedTouches[0].screenY;
+            
+            let diffX = currentX - lastMoveX;
+            let diffY = currentY - lastMoveY;
+
+            // Links / Rechts Bewegung
+            if (Math.abs(diffX) > moveThreshold) {
+                if (diffX > 0) playerMove(1); 
+                else playerMove(-1); 
+                lastMoveX = currentX; 
+                draw();
+            }
+
+            // Finger nach UNTEN ziehen (Soft Drop / schneller fallen)
+            if (diffY > dropThreshold) {
+                playerDrop();
+                lastMoveY = currentY; // Setzt den Punkt zurück, damit man kontinuierlich wischen kann
+                draw();
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', (e) => {
+            if (gameMode !== 'PLAYING') return;
+            e.preventDefault();
+
+            let touchEndX = e.changedTouches[0].screenX;
+            let touchEndY = e.changedTouches[0].screenY;
+
+            let totalDiffX = touchEndX - touchStartX;
+            let totalDiffY = touchEndY - touchStartY;
+
+            // Schnelles Wischen nach OBEN (Hard Drop)
+            // Wenn man min. 40 Pixel hochgewischt hat und die Bewegung mehr vertikal als horizontal war
+            if (totalDiffY < -40 && Math.abs(totalDiffY) > Math.abs(totalDiffX)) {
+                playerHardDrop();
+            } 
+            // Tippen auf den Bildschirm (wenig bis gar keine Bewegung) = Rotieren
+            else if (Math.abs(totalDiffX) < 15 && Math.abs(totalDiffY) < 15) {
+                playerRotate();
+                draw();
+            }
+        }, { passive: false });
+
+        // --- Buttons ---
+        startBtn.addEventListener('click', () => {
+            if (gameMode === 'STOPPED') {
+                startBtn.innerText = "Pause";
+                startGame();
+            } else if (gameMode === 'PLAYING') {
+                gameMode = 'PAUSED';
+                cancelAnimationFrame(animationId);
+                startBtn.innerText = "Weiter";
+                ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                ctx.fillRect(0,0, canvas.width, canvas.height);
+                ctx.fillStyle = '#fff';
+                ctx.font = '30px Arial';
+                ctx.fillText('PAUSE', 105, canvas.height/2);
+            } else if (gameMode === 'PAUSED') {
+                gameMode = 'PLAYING';
+                startBtn.innerText = "Pause";
+                lastTime = performance.now();
+                update();
+            }
+        });
+
+        restartBtn.addEventListener('click', () => {
+            startBtn.innerText = "Pause";
+            startGame();
+        });
+
+        // Init
+        board = createMatrix(COLS, ROWS);
+        draw();
+
+    </script>
+</body>
+</html>

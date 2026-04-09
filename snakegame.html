@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Snakegame - Multi-Mode Edition</title>
+    <style>
+        /* =========================================
+           CSS STYLING - ARCADE LOOK
+           ========================================= */
+        :root {
+            --bg-color: #111;
+            --text-color: #fff;
+            --panel-bg: #222;
+            --snake-color: #00FF00;
+            --food-color: #FF0044;
+            --border-radius: 10px;
+        }
+
+        body, html {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            overflow: hidden; 
+            touch-action: none; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #game-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 600px;
+            height: 100%;
+            padding: env(safe-area-inset-top) 10px env(safe-area-inset-bottom) 10px;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        /* Top Bar mit Stats und neuen Buttons */
+        .top-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: var(--panel-bg);
+            padding: 10px 15px;
+            border-radius: var(--border-radius);
+            margin-bottom: 15px;
+            margin-top: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .stats-left {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .stat-box {
+            font-size: 14px;
+            color: #aaa;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        .stat-box span {
+            font-size: 18px;
+            color: var(--snake-color);
+            margin-left: 8px;
+        }
+
+        /* Top-Buttons (Menü & Home) */
+        .top-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .icon-btn {
+            background-color: #333;
+            color: white;
+            border: 1px solid #555;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            font-size: 18px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            pointer-events: auto; /* Wichtig für Touch */
+        }
+
+        .icon-btn:active {
+            background-color: #555;
+            transform: scale(0.95);
+        }
+
+        /* Spielfeld */
+        #canvas-container {
+            position: relative;
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            background-color: #0a0a0a;
+            border-radius: var(--border-radius);
+            border: 2px solid #333;
+            overflow: hidden;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+        }
+
+        canvas {
+            background-color: #000;
+            background-image: 
+                linear-gradient(#111 1px, transparent 1px),
+                linear-gradient(90deg, #111 1px, transparent 1px);
+            background-size: 20px 20px;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.1);
+        }
+
+        /* Menüs (Hauptmenü & Game Over) */
+        .overlay-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            border-radius: var(--border-radius);
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .overlay-screen h1 {
+            color: var(--snake-color);
+            font-size: 32px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px var(--snake-color);
+        }
+
+        .overlay-screen p {
+            color: #aaa;
+            margin-bottom: 30px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .menu-btn {
+            background-color: #222; 
+            color: white;
+            border: 2px solid var(--snake-color);
+            padding: 15px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            text-transform: uppercase;
+            cursor: pointer;
+            width: 100%;
+            max-width: 250px;
+            margin-bottom: 15px;
+            transition: all 0.2s;
+            pointer-events: auto; 
+        }
+
+        .menu-btn:active {
+            transform: scale(0.95);
+        }
+
+        .menu-btn.medium { border-color: #FFA500; }
+        .menu-btn.hard { border-color: #FF0044; }
+
+        .hidden {
+            display: none !important;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        
+        <div class="top-panel">
+            <div class="stats-left">
+                <div class="stat-box">Modus: <span id="current-mode-display" style="color: #fff;">-</span></div>
+                <div class="stat-box">Score: <span id="score">0</span></div>
+            </div>
+            
+            <div class="top-controls">
+                <button class="icon-btn" onclick="showMainMenu()" title="Modus-Auswahl / Hauptmenü">☰</button>
+                <button class="icon-btn" onclick="window.location.href='index.html'" title="Zurück zur Startseite">🏠</button>
+            </div>
+        </div>
+
+        <div id="canvas-container">
+            <canvas id="game-board"></canvas>
+            
+            <div id="main-menu" class="overlay-screen">
+                <h1>SNAKEGAME</h1>
+                <p>Wähle deinen Schwierigkeitsgrad.<br>Wische auf dem Screen zum Steuern.</p>
+                
+                <button class="menu-btn easy" onclick="startGame('EASY')">
+                    EASY<br><small style="font-size:10px; font-weight:normal;">Unsterblich, Geister-Wände</small>
+                </button>
+                <button class="menu-btn medium" onclick="startGame('MEDIUM')">
+                    MEDIUM<br><small style="font-size:10px; font-weight:normal;">Sterblich, Geister-Wände</small>
+                </button>
+                <button class="menu-btn hard" onclick="startGame('HARD')">
+                    HARD<br><small style="font-size:10px; font-weight:normal;">Sterblich, tödliche Wände</small>
+                </button>
+            </div>
+
+            <div id="game-over-screen" class="overlay-screen hidden">
+                <h1 style="color: #FF0044; text-shadow: 0 0 10px #FF0044;">GAME OVER</h1>
+                <p>Dein Score: <span id="final-score" style="font-size: 24px; color: white; font-weight: bold;">0</span></p>
+                <button class="menu-btn" onclick="restartCurrentMode()">Nochmal spielen</button>
+                <button class="menu-btn" style="border-color: #555; color: #aaa;" onclick="showMainMenu()">Menü</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* =========================================
+           JAVASCRIPT LOGIK - SNAKE & MODI
+           ========================================= */
+
+        const canvas = document.getElementById('game-board');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const modeDisplay = document.getElementById('current-mode-display');
+        const mainMenu = document.getElementById('main-menu');
+        const gameOverScreen = document.getElementById('game-over-screen');
+
+        const GRID_SIZE = 20;
+
+        let snake = [];
+        let food = {};
+        let dx = GRID_SIZE; 
+        let dy = 0;         
+        let score = 0;
+        let gameLoopTimeout;
+        let gameActive = false;
+        let currentMode = '';
+        let changingDirection = false; 
+
+        const MODES = {
+            'EASY': { cols: 12, rows: 15, speed: 130, color: '#00FF00', immortal: true, solidWalls: false },
+            'MEDIUM': { cols: 16, rows: 20, speed: 100, color: '#FFA500', immortal: false, solidWalls: false },
+            'HARD': { cols: 22, rows: 28, speed: 80, color: '#FF0044', immortal: false, solidWalls: true }
+        };
+
+        // Diese Funktion öffnet jetzt die Schwierigkeitsauswahl
+        function showMainMenu() {
+            gameActive = false;
+            clearTimeout(gameLoopTimeout);
+            gameOverScreen.classList.add('hidden');
+            mainMenu.classList.remove('hidden');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            scoreElement.innerText = "0";
+            modeDisplay.innerText = "-";
+            currentMode = ''; 
+        }
+
+        // Wird vom Game Over Screen aufgerufen
+        function restartCurrentMode() {
+            if (currentMode !== '') {
+                clearTimeout(gameLoopTimeout);
+                startGame(currentMode);
+            }
+        }
+
+        function startGame(mode) {
+            currentMode = mode;
+            const config = MODES[mode];
+
+            mainMenu.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            modeDisplay.innerText = mode;
+            modeDisplay.style.color = config.color;
+            
+            canvas.width = config.cols * GRID_SIZE;
+            canvas.height = config.rows * GRID_SIZE;
+
+            score = 0;
+            scoreElement.innerText = score;
+            dx = GRID_SIZE;
+            dy = 0;
+            gameActive = true;
+
+            const startX = Math.floor(config.cols / 2) * GRID_SIZE;
+            const startY = Math.floor(config.rows / 2) * GRID_SIZE;
+            snake = [
+                {x: startX, y: startY},
+                {x: startX - GRID_SIZE, y: startY},
+                {x: startX - GRID_SIZE * 2, y: startY}
+            ];
+
+            placeFood();
+            mainLoop();
+        }
+
+        function mainLoop() {
+            if (!gameActive) return;
+
+            changingDirection = false;
+
+            gameLoopTimeout = setTimeout(function() {
+                clearCanvas();
+                drawFood();
+                moveSnake();
+                drawSnake();
+                
+                if (checkGameOver()) {
+                    handleGameOver();
+                } else {
+                    mainLoop();
+                }
+            }, MODES[currentMode].speed);
+        }
+
+        function clearCanvas() {
+            // Hier ist die Änderung: Das Canvas wird komplett geleert, kein Ghosting mehr!
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function drawSnake() {
+            const config = MODES[currentMode];
+            
+            snake.forEach((part, index) => {
+                ctx.fillStyle = index === 0 ? '#FFFFFF' : config.color;
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                
+                ctx.fillRect(part.x + 1, part.y + 1, GRID_SIZE - 2, GRID_SIZE - 2);
+                ctx.strokeRect(part.x + 1, part.y + 1, GRID_SIZE - 2, GRID_SIZE - 2);
+                
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.fillRect(part.x + 2, part.y + 2, GRID_SIZE - 4, 4);
+            });
+        }
+
+        function drawFood() {
+            ctx.fillStyle = 'var(--food-color)';
+            ctx.strokeStyle = '#fff';
+            
+            ctx.beginPath();
+            ctx.arc(
+                food.x + GRID_SIZE / 2, 
+                food.y + GRID_SIZE / 2, 
+                (GRID_SIZE / 2) - 2, 
+                0, 
+                2 * Math.PI
+            );
+            ctx.fill();
+            ctx.stroke();
+        }
+
+        function moveSnake() {
+            const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+            const config = MODES[currentMode];
+
+            if (!config.solidWalls) {
+                if (head.x >= canvas.width) head.x = 0;
+                else if (head.x < 0) head.x = canvas.width - GRID_SIZE;
+                
+                if (head.y >= canvas.height) head.y = 0;
+                else if (head.y < 0) head.y = canvas.height - GRID_SIZE;
+            }
+
+            snake.unshift(head);
+
+            if (head.x === food.x && head.y === food.y) {
+                score += 10;
+                scoreElement.innerText = score;
+                placeFood();
+            } else {
+                snake.pop(); 
+            }
+        }
+
+        function placeFood() {
+            const config = MODES[currentMode];
+            food = {
+                x: Math.floor(Math.random() * config.cols) * GRID_SIZE,
+                y: Math.floor(Math.random() * config.rows) * GRID_SIZE
+            };
+
+            snake.forEach(function isFoodOnSnake(part) {
+                if (part.x === food.x && part.y === food.y) {
+                    placeFood();
+                }
+            });
+        }
+
+        function checkGameOver() {
+            const config = MODES[currentMode];
+            const head = snake[0];
+
+            if (config.solidWalls) {
+                if (head.x < 0 || head.x >= canvas.width || head.y < 0 || head.y >= canvas.height) {
+                    return true;
+                }
+            }
+
+            if (!config.immortal) {
+                for (let i = 1; i < snake.length; i++) {
+                    if (head.x === snake[i].x && head.y === snake[i].y) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        function handleGameOver() {
+            gameActive = false;
+            document.getElementById('final-score').innerText = score;
+            gameOverScreen.classList.remove('hidden');
+        }
+
+        /* =========================================
+           STEUERUNG (TOUCH & TASTATUR)
+           ========================================= */
+
+        document.addEventListener("keydown", changeDirection);
+
+        function changeDirection(event) {
+            if (changingDirection) return;
+
+            const LEFT_KEY = 37;
+            const RIGHT_KEY = 39;
+            const UP_KEY = 38;
+            const DOWN_KEY = 40;
+
+            const keyPressed = event.keyCode;
+            const goingUp = dy === -GRID_SIZE;
+            const goingDown = dy === GRID_SIZE;
+            const goingRight = dx === GRID_SIZE;
+            const goingLeft = dx === -GRID_SIZE;
+
+            if (keyPressed === LEFT_KEY && !goingRight) {
+                dx = -GRID_SIZE; dy = 0; changingDirection = true; event.preventDefault();
+            }
+            if (keyPressed === UP_KEY && !goingDown) {
+                dx = 0; dy = -GRID_SIZE; changingDirection = true; event.preventDefault();
+            }
+            if (keyPressed === RIGHT_KEY && !goingLeft) {
+                dx = GRID_SIZE; dy = 0; changingDirection = true; event.preventDefault();
+            }
+            if (keyPressed === DOWN_KEY && !goingUp) {
+                dx = 0; dy = GRID_SIZE; changingDirection = true; event.preventDefault();
+            }
+        }
+
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        canvas.addEventListener('touchstart', function(e) {
+            if (!gameActive) return; 
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+            e.preventDefault(); 
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', function(e) {
+            if (!gameActive) return;
+            e.preventDefault(); 
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', function(e) {
+            if (!gameActive || changingDirection) return;
+
+            let touchEndX = e.changedTouches[0].screenX;
+            let touchEndY = e.changedTouches[0].screenY;
+
+            let diffX = touchEndX - touchStartX;
+            let diffY = touchEndY - touchStartY;
+
+            if (Math.abs(diffX) < 20 && Math.abs(diffY) < 20) return;
+
+            const goingUp = dy === -GRID_SIZE;
+            const goingDown = dy === GRID_SIZE;
+            const goingRight = dx === GRID_SIZE;
+            const goingLeft = dx === -GRID_SIZE;
+
+            if (Math.abs(diffX) > Math.abs(diffY)) {
+                if (diffX > 0 && !goingLeft) { 
+                    dx = GRID_SIZE; dy = 0; changingDirection = true;
+                } else if (diffX < 0 && !goingRight) { 
+                    dx = -GRID_SIZE; dy = 0; changingDirection = true;
+                }
+            } else {
+                if (diffY > 0 && !goingUp) { 
+                    dx = 0; dy = GRID_SIZE; changingDirection = true;
+                } else if (diffY < 0 && !goingDown) { 
+                    dx = 0; dy = -GRID_SIZE; changingDirection = true;
+                }
+            }
+        }, { passive: false });
+
+    </script>
+</body>
+</html>
